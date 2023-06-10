@@ -11,7 +11,9 @@
 #include <iostream>
 
 #include "MapGenerator.h"
-#include "shader.h"
+#include "Shader.h"
+#include "Player.h"
+#include "UI_Handler.h"
 
 using namespace std;
 using namespace glm;
@@ -40,6 +42,15 @@ float lastFrameTime = 0.0f;
 //Input handling
 vec3 displacement = vec3(0.0f, 0.0f, -2.0f);
 float movementSpeed = 1.0f;
+
+//UI Handling
+UI_Handler uiHandler;
+
+//Map info
+char** generatedMap = nullptr;
+
+//Player info
+Player player;
 #pragma endregion
 
 int main()
@@ -79,6 +90,19 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0); //VBO Unbind
 	glBindVertexArray(0); //VAO Unbind
 
+#pragma region UI_GENERATION
+	uiHandler = UI_Handler();
+#pragma endregion
+
+#pragma region MAP_GENERATION
+	MapGenerator().ReadGridFromFile(generatedMap);
+	MapGenerator().PrintGrid(generatedMap);
+#pragma endregion
+
+#pragma region PLAYER
+	player = Player(100, 100);
+#pragma endregion
+
 	// MAIN RENDERING LOOP
 	while (!glfwWindowShouldClose(window))
 	{
@@ -101,11 +125,12 @@ int main()
 		//RENDERING
 		glBindVertexArray(VAO);
 
-		Begin("Hello I'm a window");
-		Text("Hello from a text component");
-		End();
+		//UI
+		uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), MapGenerator().GetRows(), MapGenerator().GetColumns());
+		uiHandler.DrawPlayerInfo(player.GetStats());
 
 		Render();
+		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(GetDrawData());
 
 		// glfw: double buffering and polling IO events (keyboard, mouse, etc.)
@@ -115,7 +140,7 @@ int main()
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
-	DestroyContext();
+	ImGui::DestroyContext();
 
 	// Resource and GLFW cleanup
 	glfwTerminate();
@@ -229,6 +254,11 @@ void processInput(GLFWwindow* window)
 	{
 		displacement.z += movementSpeed * deltaTime;
 	}
+
+	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+	{
+		player.ApplyDamageBy(1);
+	}
 }
 
 //frame buffer resizing callback
@@ -238,4 +268,5 @@ void frameBufferSizeCallback(GLFWwindow* window, int width, int height)
 	SCR_HEIGHT = height;
 	glViewport(0, 0, width, height);
 }
+
 #pragma endregion

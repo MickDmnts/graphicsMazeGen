@@ -5,74 +5,68 @@
 #include <fstream>
 #include <string>
 
-using namespace std;
-
 class MapGenerator
 {
 private:
-	string mapPath;
-	const unsigned int width = 8;
-	const unsigned int height = 8;
-
-	string getMapFileContent()
-	{
-		fstream mapFile;
-		string txt;
-
-		mapFile.open(mapPath, ios::in);
-		if (mapFile.is_open())
-		{
-			while (getline(mapFile, txt))
-			{
-				//TODO: Return the whole text file
-				txt.append(txt);
-			}
-		}
-
-		mapFile.close();
-
-		return txt;
-	}
+	std::string mapPath;
+	const unsigned int rows = 8;
+	const unsigned int columns = 8;
 
 public:
+
+	const unsigned int GetRows()
+	{
+		return rows;
+	}
+
+	const unsigned int GetColumns()
+	{
+		return columns;
+	}
+
 	MapGenerator()
 	{
 		mapPath = "ActiveMap/map01.mmp";
 	}
 
-	string printMap()
+	void PrintGrid(char** grid)
 	{
-		return getMapFileContent();
+		for (int row = 0; row < rows; ++row)
+		{
+			for (int col = 0; col < columns; ++col)
+			{
+				std::cout << grid[row][col] << ' ';
+			}
+			std::cout << std::endl;
+		}
 	}
 
-	char** getMap()
+	void ReadGridFromFile(char**& grid)
 	{
-		string mapContent = getMapFileContent();
-
-		char** maze = new char* [height];
-		for (int i = 0; i < height; i++)
+		std::ifstream file(mapPath);
+		if (!file.is_open())
 		{
-			maze[i] = new char[width];
+			std::cout << "Failed to open the file." << std::endl;
+			return;
 		}
 
-		int index = 0;
-		for (int i = 0; i < height; ++i)
+		//Memory allocation
+		grid = new char* [rows];
+		for (int row = 0; row < rows; ++row)
 		{
-			for (int j = 0; j < width; ++j)
+			grid[row] = new char[columns];
+		}
+
+		//Reads the file and writes the chars to a 2d array.
+		for (int row = 0; row < rows; ++row)
+		{
+			for (int col = 0; col < columns; ++col)
 			{
-				if (index < mapContent.length())
-				{
-					maze[i][j] = mapContent[index++];
-				}
-				else
-				{
-					maze[i][j] = '\0';
-				}
+				file >> grid[row][col];
 			}
 		}
 
-		return maze;
+		file.close();
 	}
 };
-
 #endif
