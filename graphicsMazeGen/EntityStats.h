@@ -9,28 +9,19 @@ private:
 
 public:
 	unsigned int GetHealth()
-	{
-		return health;
-	}
+	{return health;}
 
 	unsigned int GetMana()
-	{
-		return mana;
-	}
+	{return mana;}
 
 	void SetHealth(unsigned int value)
-	{
-		health = value;
-	}
+	{health = value;}
 
 	void SetMana(unsigned int value)
-	{
-		mana = value;
-	}
+	{mana = value;}
 
 	EntityStats()
-	{
-	}
+	{}
 
 	EntityStats(unsigned int health, unsigned int mana)
 	{

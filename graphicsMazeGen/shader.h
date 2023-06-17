@@ -54,7 +54,7 @@ public:
 			vertexCode = vSStream.str();
 			fragmentCode = fSStream.str();
 		}
-		catch (ifstream::failure& e)
+		catch (ifstream::failure& errMsg)
 		{
 			cout << "SHADER FILE READ ERROR\n";
 		}

@@ -15,10 +15,6 @@
 #include "Player.h"
 #include "UI_Handler.h"
 
-using namespace std;
-using namespace glm;
-using namespace ImGui;
-
 #pragma region SIGNATURES
 void GLFW_Init();
 GLFWwindow* GLFW_WindowInit();
@@ -27,9 +23,13 @@ void IMGUI_Init();
 
 void frameBufferSizeCallback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
+
+void mouseCallback(GLFWwindow* window, double xPos, double yPos);
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
 #pragma endregion
 
 #pragma region VARS
+//Window
 unsigned int SCR_WIDTH = 1280;
 unsigned int SCR_HEIGHT = 720;
 
@@ -43,11 +43,17 @@ float lastFrameTime = 0.0f;
 vec3 displacement = vec3(0.0f, 0.0f, -2.0f);
 float movementSpeed = 1.0f;
 
+// Mouse position data
+float previousX = 0.0f;
+float previousY = 0.0f;
+bool isFirstFrame = true;
+
 //UI Handling
 UI_Handler uiHandler;
 
 //Map info
 char** generatedMap = nullptr;
+std::string mapPath = "ActiveMap/map01.mmp";
 
 //Player info
 Player player;
@@ -58,12 +64,20 @@ int main()
 	GLFW_Init();
 
 	window = GLFW_WindowInit();
+	if(window == NULL)
+	{glfwTerminate();}
 
 	if (!GLAD_Init())
 	{
 		glfwTerminate();
 		return -1;
 	}
+
+	glfwSetCursorPosCallback(window, mouseCallback);
+	glfwSetScrollCallback(window, scrollCallback);
+
+	// Cursor grabbing settings
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	IMGUI_Init();
 
@@ -95,15 +109,16 @@ int main()
 #pragma endregion
 
 #pragma region MAP_GENERATION
-	MapGenerator().ReadGridFromFile(generatedMap);
-	MapGenerator().PrintGrid(generatedMap);
+	MapGenerator mapGen(mapPath);
+	mapGen.ReadGridFromFile(generatedMap);
+	mapGen.PrintGrid(generatedMap);
 #pragma endregion
 
 #pragma region PLAYER
 	player = Player(100, 100);
 #pragma endregion
 
-	// MAIN RENDERING LOOP
+#pragma region RENDERING_LOOP
 	while (!glfwWindowShouldClose(window))
 	{
 		//DeltaTime calculation
@@ -120,23 +135,24 @@ int main()
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
-		NewFrame();
+		ImGui::NewFrame();
 
 		//RENDERING
 		glBindVertexArray(VAO);
 
 		//UI
-		uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), MapGenerator().GetRows(), MapGenerator().GetColumns());
+		uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), mapGen.GetRows(), mapGen.GetColumns());
 		uiHandler.DrawPlayerInfo(player.GetStats());
 
-		Render();
+		ImGui::Render();
 		glClear(GL_COLOR_BUFFER_BIT);
-		ImGui_ImplOpenGL3_RenderDrawData(GetDrawData());
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		// glfw: double buffering and polling IO events (keyboard, mouse, etc.)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+#pragma endregion
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
@@ -164,7 +180,7 @@ void GLFW_Init()
 /// <summary>
 /// Initialized the GLFW window and then returns it.
 /// </summary>
-/// <returns></returns>
+/// <returns>The created app window, or NULL</returns>
 GLFWwindow* GLFW_WindowInit()
 {
 	//Window creation
@@ -172,7 +188,6 @@ GLFWwindow* GLFW_WindowInit()
 	if (window == NULL)
 	{
 		cout << "Failed to create GLFW window \n";
-		glfwTerminate();
 		return NULL;
 	}
 
@@ -185,7 +200,7 @@ GLFWwindow* GLFW_WindowInit()
 /// <summary>
 /// Returns true if GLAD was successfully initialized, false otherwise.
 /// </summary>
-/// <returns></returns>
+/// <returns>True if GLAD was succesfully initialized, false otherwise</returns>
 bool GLAD_Init()
 {
 	// glad: load OpenGL function pointers
@@ -205,16 +220,15 @@ void IMGUI_Init()
 {
 	//GUI Initialization			
 	//IMGUI_CHECKVERSION();
-	CreateContext();
-	ImGuiIO& io = GetIO(); (void)io;
-	StyleColorsDark();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 330");
 }
 #pragma endregion
 
 #pragma region UTILS
-//Handle keyboard input events
 void processInput(GLFWwindow* window)
 {
 	//Exit
@@ -226,26 +240,26 @@ void processInput(GLFWwindow* window)
 	//Movement
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
 	{
-		displacement.x -= movementSpeed * deltaTime;
+		player.GetCamera().HandleKeyboard(LEFT, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
 	{
-		displacement.y -= movementSpeed * deltaTime;
+		player.GetCamera().HandleKeyboard(BACKWARD, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 	{
-		displacement.x += movementSpeed * deltaTime;
+		player.GetCamera().HandleKeyboard(RIGHT, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 	{
-		displacement.y += movementSpeed * deltaTime;
+		player.GetCamera().HandleKeyboard(FORWARD, deltaTime);
 	}
 
 	//Depth
-	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+	/*if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
 	{
 		displacement.z -= movementSpeed * deltaTime;
 	}
@@ -253,12 +267,32 @@ void processInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
 	{
 		displacement.z += movementSpeed * deltaTime;
+	}*/
+}
+
+// Mouse position callback
+void mouseCallback(GLFWwindow* window, double xPos, double yPos)
+{
+	if (isFirstFrame)
+	{
+		previousX = (float)xPos;
+		previousY = (float)yPos;
+		isFirstFrame = false;
 	}
 
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-	{
-		player.ApplyDamageBy(1);
-	}
+	float xOffset = (float)xPos - previousX;
+	float yOffset = (float)yPos - previousY;
+
+	previousX = (float)xPos;
+	previousY = (float)yPos;
+
+	player.GetCamera().HandleMouseMovement(xOffset, yOffset, deltaTime);
+}
+
+// Scrolling callback
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
+{
+	player.GetCamera().HandleMouseScroll((float)yOffset);
 }
 
 //frame buffer resizing callback

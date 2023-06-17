@@ -24,9 +24,9 @@ public:
 		return columns;
 	}
 
-	MapGenerator()
+	MapGenerator(std::string loadMapPath)
 	{
-		mapPath = "ActiveMap/map01.mmp";
+		mapPath = loadMapPath;
 	}
 
 	void PrintGrid(char** grid)
