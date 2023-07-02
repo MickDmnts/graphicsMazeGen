@@ -4,13 +4,17 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
+#include <vector>
 
+#include "Global.h"
 #include "MapGenerator.h"
+#include "Skybox.h"
 #include "Shader.h"
 #include "Player.h"
 #include "UI_Handler.h"
@@ -26,6 +30,8 @@ void processInput(GLFWwindow* window);
 
 void mouseCallback(GLFWwindow* window, double xPos, double yPos);
 void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
+
+unsigned int loadCubeMap(std::vector<std::string> faces);
 #pragma endregion
 
 #pragma region VARS
@@ -48,6 +54,8 @@ float previousX = 0.0f;
 float previousY = 0.0f;
 bool isFirstFrame = true;
 
+vector<Object*> gameObjects;
+
 //UI Handling
 UI_Handler uiHandler;
 
@@ -56,6 +64,7 @@ char** generatedMap = nullptr;
 std::string mapPath = "ActiveMap/map01.mmp";
 
 //Player info
+Camera playerCam;
 Player player;
 #pragma endregion
 
@@ -64,13 +73,9 @@ int main()
 	GLFW_Init();
 
 	window = GLFW_WindowInit();
-	if(window == NULL)
-	{glfwTerminate();}
-
-	if (!GLAD_Init())
+	if (window == NULL)
 	{
 		glfwTerminate();
-		return -1;
 	}
 
 	glfwSetCursorPosCallback(window, mouseCallback);
@@ -79,10 +84,18 @@ int main()
 	// Cursor grabbing settings
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+	if (!GLAD_Init())
+	{
+		glfwTerminate();
+		return -1;
+	}
+
 	IMGUI_Init();
 
 	//Enabling-Disabling depth testing
 	glEnable(GL_DEPTH_TEST);
+
+	Shader mainShader("Shaders/vertexShader.vs", "Shaders/fragmentShader.fs");
 
 	unsigned int VBO, VAO;
 
@@ -104,24 +117,27 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, 0); //VBO Unbind
 	glBindVertexArray(0); //VAO Unbind
 
-#pragma region UI_GENERATION
-	uiHandler = UI_Handler();
-#pragma endregion
+	//Skybox creation
+	Skybox skybox = Skybox(loadCubeMap(Global().cubeFaces));
 
-#pragma region MAP_GENERATION
+	//Ui handler instantiation
+	uiHandler = UI_Handler();
+
+	//Map generator start
 	MapGenerator mapGen(mapPath);
 	mapGen.ReadGridFromFile(generatedMap);
 	mapGen.PrintGrid(generatedMap);
-#pragma endregion
 
-#pragma region PLAYER
+	//WORLD PARSING and OBJECT/MODEL CREATION HERE
+
+	//Player init
+	playerCam = Camera(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 	player = Player(100, 100);
-#pragma endregion
+	gameObjects.push_back(&player);
 
-#pragma region RENDERING_LOOP
 	while (!glfwWindowShouldClose(window))
 	{
-		//DeltaTime calculation
+		// DeltaTime calculation
 		float currentFrameTime = glfwGetTime();
 		deltaTime = currentFrameTime - lastFrameTime;
 		lastFrameTime = currentFrameTime;
@@ -130,15 +146,28 @@ int main()
 		processInput(window);
 
 		// Reinitialize frame buffer
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//Transform declaration
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 view = glm::mat4(1.0f);
+		glm::mat4 projection = glm::mat4(1.0f);
+
+		projection = glm::perspective(glm::radians(playerCam.fov), (float)SCR_WIDTH / SCR_HEIGHT, 0.1f, 100.0f);
+
+		// Update view matrix
+		view = playerCam.GetViewMatrix();
+
+		mainShader.use();
+		mainShader.setVec3("viewPosition", playerCam.position);
+		mainShader.setMat4("view", view);
+		mainShader.setMat4("projection", projection);
+		mainShader.setMat4("model", model);
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-
-		//RENDERING
-		glBindVertexArray(VAO);
 
 		//UI
 		uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), mapGen.GetRows(), mapGen.GetColumns());
@@ -148,11 +177,13 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+		//Skybox updating
+		skybox.UpdateSkyboxShader(view, projection);
+
 		// glfw: double buffering and polling IO events (keyboard, mouse, etc.)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-#pragma endregion
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
@@ -240,22 +271,22 @@ void processInput(GLFWwindow* window)
 	//Movement
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
 	{
-		player.GetCamera().HandleKeyboard(LEFT, deltaTime);
+		playerCam.HandleKeyboard(LEFT, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
 	{
-		player.GetCamera().HandleKeyboard(BACKWARD, deltaTime);
+		playerCam.HandleKeyboard(BACKWARD, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 	{
-		player.GetCamera().HandleKeyboard(RIGHT, deltaTime);
+		playerCam.HandleKeyboard(RIGHT, deltaTime);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 	{
-		player.GetCamera().HandleKeyboard(FORWARD, deltaTime);
+		playerCam.HandleKeyboard(FORWARD, deltaTime);
 	}
 
 	//Depth
@@ -286,13 +317,13 @@ void mouseCallback(GLFWwindow* window, double xPos, double yPos)
 	previousX = (float)xPos;
 	previousY = (float)yPos;
 
-	player.GetCamera().HandleMouseMovement(xOffset, yOffset, deltaTime);
+	playerCam.HandleMouseMovement(xOffset, yOffset, deltaTime);
 }
 
 // Scrolling callback
 void scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
 {
-	player.GetCamera().HandleMouseScroll((float)yOffset);
+	playerCam.HandleMouseScroll((float)yOffset);
 }
 
 //frame buffer resizing callback
@@ -303,4 +334,70 @@ void frameBufferSizeCallback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
+// Face order should follow the rule:
+// 0. Right face (+X)
+// 1. Left face (-X)
+// 2. Top face (+Y)
+// 3. Bottom face (-Y)
+// 4. Front face (+Z)
+// 5. Back face (-Z)
+unsigned int loadCubeMap(std::vector<std::string> faces)
+{
+	unsigned int textureID;
+
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	// Texture wrapping properties
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	// ---------------------------
+
+	// Texture filtering properties
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// ----------------------------
+
+	int width, height, numOfChannels;
+
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &numOfChannels, 0);
+
+		if (data)
+		{
+			GLenum format;
+
+			if (numOfChannels == 1)
+			{
+				format = GL_RED;
+			}
+			else if (numOfChannels == 3)
+			{
+				format = GL_RGB;
+			}
+			else if (numOfChannels == 4)
+			{
+				format = GL_RGBA;
+			}
+			else
+			{
+				std::cout << "TEXTURE FILE " << faces[i] << " FAILED TO LOAD: INCOMPATIBLE NUMBER OF CHANNELS!!" << std::endl;
+				stbi_image_free(data);
+				continue;
+			}
+
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		}
+		else
+		{
+			std::cout << "TEXTURE FILE FAILED TO LOAD FROM PATH " << faces[i] << "!!" << std::endl;
+		}
+
+		stbi_image_free(data);
+	}
+
+	return textureID;
+}
 #pragma endregion

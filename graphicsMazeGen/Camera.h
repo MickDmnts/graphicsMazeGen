@@ -1,10 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include <glm/ext/matrix_float4x4.hpp>
-#include <glm/ext/matrix_transform.hpp>
-
-#include "Global.h"
+const glm::vec3 WORLD_UP = glm::vec3(0.0f, 1.0f, 0.0f);
 
 enum CameraMovement
 {
@@ -32,19 +29,7 @@ public:
 	float pitch;
 	float yaw;
 
-	Camera()
-	{
-		position = glm::vec3(0.0f);
-		forward = glm::vec3(0.0f);
-		up = glm::vec3(0.0f);
-		right = glm::vec3(0.0f);
-
-		movementSpeed = 0.0f;
-		rotationSpeed = 0.0f;
-		fov = 0.0f;
-		pitch = 0.0f;
-		yaw = 0.0f;
-	}
+	Camera() {};
 
 	Camera(glm::vec3 startingPosition, glm::vec3 startingForward)
 	{
@@ -55,9 +40,9 @@ public:
 		yaw = -90.0f;
 
 		movementSpeed = 2.0f;
-		rotationSpeed = 1.0f;
+		rotationSpeed = 5.0;
 
-		fov = 45.0f; //fov = zoom
+		fov = 45;
 
 		UpdateCameraVectors();
 	}
@@ -71,24 +56,20 @@ public:
 	{
 		float finalSpeed = movementSpeed * deltaTime;
 
-		switch (direction)
-		{
-			case FORWARD:
-				position += forward * finalSpeed;
-				break;
+		if (direction == FORWARD)
+			position += forward * finalSpeed;
+		if (direction == BACKWARD)
+			position -= forward * finalSpeed;
 
-			case BACKWARD:
-				position -= forward * finalSpeed;
-				break;
+		if (direction == LEFT)
+			position -= right * finalSpeed;
+		if (direction == RIGHT)
+			position += right * finalSpeed;
 
-			case LEFT:
-				position -= right * finalSpeed;
-				break;
-
-			case RIGHT:
-				position += right * finalSpeed;
-				break;
-		}
+		if (direction == UP)
+			position += up * finalSpeed;
+		if (direction == DOWN)
+			position -= up * finalSpeed;
 	}
 
 	void HandleMouseMovement(float xOffset, float yOffset, float deltaTime)
@@ -97,7 +78,6 @@ public:
 
 		yaw += xOffset * finalSpeed;
 		pitch -= yOffset * finalSpeed;
-
 		if (pitch < -90.0f)
 			pitch = -90.0f;
 		if (pitch > 90.0f)
@@ -109,13 +89,11 @@ public:
 	void HandleMouseScroll(float offset)
 	{
 		fov -= offset;
-
 		if (fov < 1.0f)
 			fov = 1.0f;
 		if (fov > 90.0f)
 			fov = 90.0f;
 	}
-
 private:
 	void UpdateCameraVectors()
 	{
@@ -125,7 +103,7 @@ private:
 		direction.z = glm::sin(glm::radians(yaw));
 
 		forward = glm::normalize(direction);
-		right = glm::normalize(glm::cross(forward, WORLD_UP)); // works because we do not have ROLL
+		right = glm::normalize(glm::cross(forward, Global().WORLD_UP)); // works because we do not have ROLL
 		up = glm::normalize(glm::cross(right, forward));
 	}
 };

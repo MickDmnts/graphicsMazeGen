@@ -23,6 +23,8 @@ public:
 	//ID of the shader
 	unsigned int ID;
 
+	Shader() { ID = -1; };
+
 	//Constructor
 	Shader(const char* vertexPath, const char* fragmentPath)
 	{

@@ -2,14 +2,15 @@
 #define ENTITY_H
 
 #include "EntityStats.h"
+#include "Object.h"
 
-class Entity
+class Entity: public Object
 {
 protected:
 	EntityStats stats;
 
-protected:
-	Entity() {}
+public:
+	Entity() {};
 };
 
 #endif

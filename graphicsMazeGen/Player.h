@@ -5,31 +5,31 @@
 #include "Entity.h"
 #include "Camera.h"
 
-class Player : private Entity
+class Player : public Entity
 {
-private:
-	Camera playerCamera;
-
 public:
 	Player()
-	{}
+	{
+	}
 
 	Player(unsigned int health, unsigned int mana)
 	{
 		stats = EntityStats();
-		playerCamera = Camera(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-
 		stats.SetHealth(health);
 		stats.SetMana(mana);
 	}
 
 	EntityStats GetStats()
-	{return stats;}
-
-	Camera GetCamera()
-	{return playerCamera;}
+	{
+		return stats;
+	}
 
 	void ApplyDamageBy(unsigned int value)
-	{stats.SetHealth(stats.GetHealth() - value);}
+	{
+		stats.SetHealth(stats.GetHealth() - value);
+	}
+
+	virtual void SetShaderPaths(const char* vertexPath, const char* fragmentPath)
+	{}
 };
 #endif
