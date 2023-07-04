@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -11,12 +13,12 @@
 
 #include <iostream>
 #include <vector>
+#include <stb_image.h>
 
-#include "Global.h"
-#include "MapGenerator.h"
-#include "Skybox.h"
-#include "Shader.h"
+#include "Camera.h"
 #include "Player.h"
+#include "Shader.h"
+#include "MapGenerator.h"
 #include "UI_Handler.h"
 
 #pragma region SIGNATURES
@@ -46,7 +48,7 @@ float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
 //Input handling
-vec3 displacement = vec3(0.0f, 0.0f, -2.0f);
+glm::vec3 displacement = glm::vec3(0.0f, 0.0f, -2.0f);
 float movementSpeed = 1.0f;
 
 // Mouse position data
@@ -54,7 +56,62 @@ float previousX = 0.0f;
 float previousY = 0.0f;
 bool isFirstFrame = true;
 
-vector<Object*> gameObjects;
+// Cubemap for skybox
+std::vector<std::string> cubeFaces
+{
+	"Textures/skybox_2/0_right.png",
+	"Textures/skybox_2/1_left.png",
+	"Textures/skybox_2/2_top.png",
+	"Textures/skybox_2/3_bottom.png",
+	"Textures/skybox_2/4_front.png",
+	"Textures/skybox_2/5_back.png",
+};
+
+float skyboxVertices[] =
+{
+	// positions          
+	-1.0f,  1.0f, -1.0f,
+	-1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+
+	-1.0f, -1.0f,  1.0f,
+	-1.0f, -1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f,  1.0f,
+	-1.0f, -1.0f,  1.0f,
+
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+
+	-1.0f, -1.0f,  1.0f,
+	-1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f, -1.0f,  1.0f,
+	-1.0f, -1.0f,  1.0f,
+
+	-1.0f,  1.0f, -1.0f,
+	 1.0f,  1.0f, -1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	-1.0f,  1.0f,  1.0f,
+	-1.0f,  1.0f, -1.0f,
+
+	-1.0f, -1.0f, -1.0f,
+	-1.0f, -1.0f,  1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	-1.0f, -1.0f,  1.0f,
+	 1.0f, -1.0f,  1.0f
+};
 
 //UI Handling
 UI_Handler uiHandler;
@@ -92,10 +149,11 @@ int main()
 
 	IMGUI_Init();
 
-	//Enabling-Disabling depth testing
+	//Enabling depth testing
 	glEnable(GL_DEPTH_TEST);
 
 	Shader mainShader("Shaders/vertexShader.vs", "Shaders/fragmentShader.fs");
+	Shader skyboxShader("Shaders/skyboxVertexShader.vs", "Shaders/skyboxFragmentShader.fs");
 
 	unsigned int VBO, VAO;
 
@@ -118,7 +176,20 @@ int main()
 	glBindVertexArray(0); //VAO Unbind
 
 	//Skybox creation
-	Skybox skybox = Skybox(loadCubeMap(Global().cubeFaces));
+	unsigned int skyboxTexture, skyboxVBO, skyboxVAO;
+
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+
+	glBindVertexArray(skyboxVAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), skyboxVertices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	skyboxTexture = loadCubeMap(cubeFaces);
 
 	//Ui handler instantiation
 	uiHandler = UI_Handler();
@@ -133,7 +204,6 @@ int main()
 	//Player init
 	playerCam = Camera(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 	player = Player(100, 100);
-	gameObjects.push_back(&player);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -178,7 +248,19 @@ int main()
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		//Skybox updating
-		skybox.UpdateSkyboxShader(view, projection);
+		glDepthFunc(GL_LEQUAL);
+
+		skyboxShader.use();
+
+		skyboxShader.setInt("skybox", 0);
+		skyboxShader.setMat4("view", glm::mat4(glm::mat3(view)));
+		skyboxShader.setMat4("projection", projection);
+
+		glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+		glBindVertexArray(skyboxVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		glDepthFunc(GL_LESS);
 
 		// glfw: double buffering and polling IO events (keyboard, mouse, etc.)
 		glfwSwapBuffers(window);
@@ -288,17 +370,6 @@ void processInput(GLFWwindow* window)
 	{
 		playerCam.HandleKeyboard(FORWARD, deltaTime);
 	}
-
-	//Depth
-	/*if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-	{
-		displacement.z -= movementSpeed * deltaTime;
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-	{
-		displacement.z += movementSpeed * deltaTime;
-	}*/
 }
 
 // Mouse position callback

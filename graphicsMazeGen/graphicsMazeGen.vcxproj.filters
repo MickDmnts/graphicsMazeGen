@@ -48,6 +48,21 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>Source Files\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Player.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EntityStats.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MapGenerator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="UI_Handler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MapGenerator.h">
@@ -89,25 +104,17 @@
     <ClInclude Include="EntityStats.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Entity.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="UI_Handler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Global.h">
+    <ClInclude Include="Mesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Object.h">
+    <ClInclude Include="Model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Skybox.h">
-      <Filter>Header Files</Filter>
-    </None>
   </ItemGroup>
 </Project>
