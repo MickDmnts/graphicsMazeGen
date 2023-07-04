@@ -15,38 +15,14 @@
 #include <vector>
 #include <stb_image.h>
 
+#include "Globals.h"
 #include "Camera.h"
 #include "Player.h"
 #include "Shader.h"
 #include "MapGenerator.h"
 #include "UI_Handler.h"
 
-#pragma region SIGNATURES
-void GLFW_Init();
-GLFWwindow* GLFW_WindowInit();
-bool GLAD_Init();
-void IMGUI_Init();
-
-void frameBufferSizeCallback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
-
-void mouseCallback(GLFWwindow* window, double xPos, double yPos);
-void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
-
-unsigned int loadCubeMap(std::vector<std::string> faces);
-#pragma endregion
-
 #pragma region VARS
-//Window
-unsigned int SCR_WIDTH = 1280;
-unsigned int SCR_HEIGHT = 720;
-
-GLFWwindow* window;
-
-// time settings
-float deltaTime = 0.0f;
-float lastFrameTime = 0.0f;
-
 //Input handling
 glm::vec3 displacement = glm::vec3(0.0f, 0.0f, -2.0f);
 float movementSpeed = 1.0f;
@@ -56,73 +32,210 @@ float previousX = 0.0f;
 float previousY = 0.0f;
 bool isFirstFrame = true;
 
-// Cubemap for skybox
-std::vector<std::string> cubeFaces
-{
-	"Textures/skybox_2/0_right.png",
-	"Textures/skybox_2/1_left.png",
-	"Textures/skybox_2/2_top.png",
-	"Textures/skybox_2/3_bottom.png",
-	"Textures/skybox_2/4_front.png",
-	"Textures/skybox_2/5_back.png",
-};
-
-float skyboxVertices[] =
-{
-	// positions          
-	-1.0f,  1.0f, -1.0f,
-	-1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-	 1.0f,  1.0f, -1.0f,
-	-1.0f,  1.0f, -1.0f,
-
-	-1.0f, -1.0f,  1.0f,
-	-1.0f, -1.0f, -1.0f,
-	-1.0f,  1.0f, -1.0f,
-	-1.0f,  1.0f, -1.0f,
-	-1.0f,  1.0f,  1.0f,
-	-1.0f, -1.0f,  1.0f,
-
-	 1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-
-	-1.0f, -1.0f,  1.0f,
-	-1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f, -1.0f,  1.0f,
-	-1.0f, -1.0f,  1.0f,
-
-	-1.0f,  1.0f, -1.0f,
-	 1.0f,  1.0f, -1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	-1.0f,  1.0f,  1.0f,
-	-1.0f,  1.0f, -1.0f,
-
-	-1.0f, -1.0f, -1.0f,
-	-1.0f, -1.0f,  1.0f,
-	 1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-	-1.0f, -1.0f,  1.0f,
-	 1.0f, -1.0f,  1.0f
-};
-
 //UI Handling
 UI_Handler uiHandler;
-
-//Map info
-char** generatedMap = nullptr;
-std::string mapPath = "ActiveMap/map01.mmp";
 
 //Player info
 Camera playerCam;
 Player player;
+#pragma endregion
+
+#pragma region GLFW_GLAD_INIT
+/// <summary>
+/// Initializes the GLFW internals
+/// </summary>
+void GLFW_Init()
+{
+	//glfw init
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+}
+
+//frame buffer resizing callback
+void frameBufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+	SCR_WIDTH = width;
+	SCR_HEIGHT = height;
+	glViewport(0, 0, width, height);
+}
+
+/// <summary>
+/// Initialized the GLFW window and then returns it.
+/// </summary>
+/// <returns>The created app window, or NULL</returns>
+GLFWwindow* GLFW_WindowInit()
+{
+	//Window creation
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Computer Graphics 2023", NULL, NULL);
+	if (window == NULL)
+	{
+		cout << "Failed to create GLFW window \n";
+		return NULL;
+	}
+
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, frameBufferSizeCallback);
+
+	return window;
+}
+
+/// <summary>
+/// Returns true if GLAD was successfully initialized, false otherwise.
+/// </summary>
+/// <returns>True if GLAD was succesfully initialized, false otherwise</returns>
+bool GLAD_Init()
+{
+	// glad: load OpenGL function pointers
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		cout << "Failed to load OpenGL function pointers!" << endl;
+		return false;
+	}
+
+	return true;
+}
+
+/// <summary>
+/// Initialized the ImGui Interface and OpenGL connections
+/// </summary>
+void IMGUI_Init()
+{
+	//GUI Initialization			
+	//IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+}
+#pragma endregion
+
+#pragma region PROCESS_INPUT
+void processInput(GLFWwindow* window)
+{
+	//Exit
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	{
+		glfwSetWindowShouldClose(window, true);
+	}
+
+	//Movement
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+	{
+		playerCam.HandleKeyboard(LEFT, deltaTime);
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+	{
+		playerCam.HandleKeyboard(BACKWARD, deltaTime);
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+	{
+		playerCam.HandleKeyboard(RIGHT, deltaTime);
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+	{
+		playerCam.HandleKeyboard(FORWARD, deltaTime);
+	}
+}
+
+// Mouse position callback
+void mouseCallback(GLFWwindow* window, double xPos, double yPos)
+{
+	if (isFirstFrame)
+	{
+		previousX = (float)xPos;
+		previousY = (float)yPos;
+		isFirstFrame = false;
+	}
+
+	float xOffset = (float)xPos - previousX;
+	float yOffset = (float)yPos - previousY;
+
+	previousX = (float)xPos;
+	previousY = (float)yPos;
+
+	playerCam.HandleMouseMovement(xOffset, yOffset, deltaTime);
+}
+
+// Scrolling callback
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
+{
+	playerCam.HandleMouseScroll((float)yOffset);
+}
+#pragma endregion
+
+#pragma region UTILS
+// Face order should follow the rule:
+// 0. Right face (+X)
+// 1. Left face (-X)
+// 2. Top face (+Y)
+// 3. Bottom face (-Y)
+// 4. Front face (+Z)
+// 5. Back face (-Z)
+unsigned int loadCubeMap(std::vector<std::string> faces)
+{
+	unsigned int textureID;
+
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	// Texture wrapping properties
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	// ---------------------------
+
+	// Texture filtering properties
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// ----------------------------
+
+	int width, height, numOfChannels;
+
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &numOfChannels, 0);
+
+		if (data)
+		{
+			GLenum format;
+
+			if (numOfChannels == 1)
+			{
+				format = GL_RED;
+			}
+			else if (numOfChannels == 3)
+			{
+				format = GL_RGB;
+			}
+			else if (numOfChannels == 4)
+			{
+				format = GL_RGBA;
+			}
+			else
+			{
+				std::cout << "TEXTURE FILE " << faces[i] << " FAILED TO LOAD: INCOMPATIBLE NUMBER OF CHANNELS!!" << std::endl;
+				stbi_image_free(data);
+				continue;
+			}
+
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		}
+		else
+		{
+			std::cout << "TEXTURE FILE FAILED TO LOAD FROM PATH " << faces[i] << "!!" << std::endl;
+		}
+
+		stbi_image_free(data);
+	}
+
+	return textureID;
+}
 #pragma endregion
 
 int main()
@@ -276,199 +389,3 @@ int main()
 
 	return 0;
 }
-
-#pragma region GLFW_GLAD_INIT
-/// <summary>
-/// Initializes the GLFW internals
-/// </summary>
-void GLFW_Init()
-{
-	//glfw init
-	glfwInit();
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-}
-
-/// <summary>
-/// Initialized the GLFW window and then returns it.
-/// </summary>
-/// <returns>The created app window, or NULL</returns>
-GLFWwindow* GLFW_WindowInit()
-{
-	//Window creation
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Computer Graphics 2023", NULL, NULL);
-	if (window == NULL)
-	{
-		cout << "Failed to create GLFW window \n";
-		return NULL;
-	}
-
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, frameBufferSizeCallback);
-
-	return window;
-}
-
-/// <summary>
-/// Returns true if GLAD was successfully initialized, false otherwise.
-/// </summary>
-/// <returns>True if GLAD was succesfully initialized, false otherwise</returns>
-bool GLAD_Init()
-{
-	// glad: load OpenGL function pointers
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-	{
-		cout << "Failed to load OpenGL function pointers!" << endl;
-		return false;
-	}
-
-	return true;
-}
-
-/// <summary>
-/// Initialized the ImGui Interface and OpenGL connections
-/// </summary>
-void IMGUI_Init()
-{
-	//GUI Initialization			
-	//IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	ImGui::StyleColorsDark();
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330");
-}
-#pragma endregion
-
-#pragma region UTILS
-void processInput(GLFWwindow* window)
-{
-	//Exit
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-	{
-		glfwSetWindowShouldClose(window, true);
-	}
-
-	//Movement
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-	{
-		playerCam.HandleKeyboard(LEFT, deltaTime);
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-	{
-		playerCam.HandleKeyboard(BACKWARD, deltaTime);
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-	{
-		playerCam.HandleKeyboard(RIGHT, deltaTime);
-	}
-
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-	{
-		playerCam.HandleKeyboard(FORWARD, deltaTime);
-	}
-}
-
-// Mouse position callback
-void mouseCallback(GLFWwindow* window, double xPos, double yPos)
-{
-	if (isFirstFrame)
-	{
-		previousX = (float)xPos;
-		previousY = (float)yPos;
-		isFirstFrame = false;
-	}
-
-	float xOffset = (float)xPos - previousX;
-	float yOffset = (float)yPos - previousY;
-
-	previousX = (float)xPos;
-	previousY = (float)yPos;
-
-	playerCam.HandleMouseMovement(xOffset, yOffset, deltaTime);
-}
-
-// Scrolling callback
-void scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
-{
-	playerCam.HandleMouseScroll((float)yOffset);
-}
-
-//frame buffer resizing callback
-void frameBufferSizeCallback(GLFWwindow* window, int width, int height)
-{
-	SCR_WIDTH = width;
-	SCR_HEIGHT = height;
-	glViewport(0, 0, width, height);
-}
-
-// Face order should follow the rule:
-// 0. Right face (+X)
-// 1. Left face (-X)
-// 2. Top face (+Y)
-// 3. Bottom face (-Y)
-// 4. Front face (+Z)
-// 5. Back face (-Z)
-unsigned int loadCubeMap(std::vector<std::string> faces)
-{
-	unsigned int textureID;
-
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-	// Texture wrapping properties
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	// ---------------------------
-
-	// Texture filtering properties
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	// ----------------------------
-
-	int width, height, numOfChannels;
-
-	for (unsigned int i = 0; i < faces.size(); i++)
-	{
-		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &numOfChannels, 0);
-
-		if (data)
-		{
-			GLenum format;
-
-			if (numOfChannels == 1)
-			{
-				format = GL_RED;
-			}
-			else if (numOfChannels == 3)
-			{
-				format = GL_RGB;
-			}
-			else if (numOfChannels == 4)
-			{
-				format = GL_RGBA;
-			}
-			else
-			{
-				std::cout << "TEXTURE FILE " << faces[i] << " FAILED TO LOAD: INCOMPATIBLE NUMBER OF CHANNELS!!" << std::endl;
-				stbi_image_free(data);
-				continue;
-			}
-
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-		}
-		else
-		{
-			std::cout << "TEXTURE FILE FAILED TO LOAD FROM PATH " << faces[i] << "!!" << std::endl;
-		}
-
-		stbi_image_free(data);
-	}
-
-	return textureID;
-}
-#pragma endregion
