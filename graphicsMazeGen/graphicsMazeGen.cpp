@@ -21,11 +21,17 @@
 #include "Shader.h"
 #include "MapGenerator.h"
 #include "UI_Handler.h"
+#include "Model.h"
 
 #pragma region VARS
 //Input handling
 glm::vec3 displacement = glm::vec3(0.0f, 0.0f, -2.0f);
 float movementSpeed = 1.0f;
+float lastFrameTime = 0.0f;
+float keyCD = 0.0f;
+float toggleCD = 1.0f;
+bool useBlinnPhong = false;
+bool tabPressed = false;
 
 // Mouse position data
 float previousX = 0.0f;
@@ -38,6 +44,16 @@ UI_Handler uiHandler;
 //Player info
 Camera playerCam;
 Player player;
+
+//Models and lights
+glm::vec3 lightPosition = glm::vec3(0.0f, 1.0f, 0.0f);
+glm::vec3 lightColor = glm::vec3(1.0f);
+
+std::vector<Model> models;
+std::vector<glm::vec3> modelPositions;
+
+//FPS
+std::vector<float> fpsData;
 #pragma endregion
 
 #pragma region GLFW_GLAD_INIT
@@ -115,6 +131,11 @@ void IMGUI_Init()
 #pragma region PROCESS_INPUT
 void processInput(GLFWwindow* window)
 {
+	if (keyCD + deltaTime <= FLT_MAX)
+	{
+		keyCD += deltaTime;
+	}
+
 	//Exit
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	{
@@ -140,6 +161,37 @@ void processInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 	{
 		playerCam.HandleKeyboard(FORWARD, deltaTime);
+	}
+
+	// Move up or down
+	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+	{
+		playerCam.HandleKeyboard(UP, deltaTime);
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+	{
+		playerCam.HandleKeyboard(DOWN, deltaTime);
+	}
+
+	//Illumination model toggling
+	if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+	{
+		if (keyCD >= toggleCD)
+		{
+			useBlinnPhong = !useBlinnPhong;
+			keyCD = 0.0f;
+		}
+	}
+
+	//UI toggle
+	if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS)
+	{
+		if (keyCD >= toggleCD)
+		{
+			tabPressed = !tabPressed;
+			keyCD = 0.0f;
+		}
 	}
 }
 
@@ -236,6 +288,40 @@ unsigned int loadCubeMap(std::vector<std::string> faces)
 
 	return textureID;
 }
+
+Model switchOnSymbol(char symbol)
+{
+	if (symbol == '0')
+	{
+		Model temp = Model(modelPaths[0]);
+		temp.scale = modelScales[0];
+		return temp;
+	}
+	else if (symbol == '1')
+	{
+		Model temp = Model(modelPaths[1]);
+		temp.scale = modelScales[1];
+		return temp;
+	}
+	else if (symbol == '2')
+	{
+		Model temp = Model(modelPaths[2]);
+		temp.scale = modelScales[2];
+		return temp;
+	}
+	else if (symbol == '3')
+	{
+		Model temp = Model(modelPaths[3]);
+		temp.scale = modelScales[3];
+		return temp;
+	}
+	else
+	{
+		Model temp = Model(modelPaths[4]);
+		temp.scale = modelScales[4];
+		return temp;
+	}
+}
 #pragma endregion
 
 int main()
@@ -265,28 +351,9 @@ int main()
 	//Enabling depth testing
 	glEnable(GL_DEPTH_TEST);
 
-	Shader mainShader("Shaders/vertexShader.vs", "Shaders/fragmentShader.fs");
-	Shader skyboxShader("Shaders/skyboxVertexShader.vs", "Shaders/skyboxFragmentShader.fs");
-
-	unsigned int VBO, VAO;
-
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	//Vertex attribute for Position
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	//Vertex attribute for texture
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	//VAO - VBO Unbinding to make the pipeline clearer.
-	glBindBuffer(GL_ARRAY_BUFFER, 0); //VBO Unbind
-	glBindVertexArray(0); //VAO Unbind
+	Shader modelShader("Shaders/vertexShader.vs", "Shaders/modelPhongFragShader.fs");
+	Shader skyboxShader("Shaders/skyboxShaderVertex.vs", "Shaders/skyboxShaderFragment.fs");
+	Shader lightSourceShader("Shaders/vertexShader.vs", "Shaders/lightSourceShader.fs");
 
 	//Skybox creation
 	unsigned int skyboxTexture, skyboxVBO, skyboxVAO;
@@ -312,11 +379,42 @@ int main()
 	mapGen.ReadGridFromFile(generatedMap);
 	mapGen.PrintGrid(generatedMap);
 
-	//WORLD PARSING and OBJECT/MODEL CREATION HERE
+	//Grid positions init
+	for (int row = 0; row < mapGen.GetRows(); ++row)
+	{
+		for (int col = 0; col < mapGen.GetColumns(); ++col)
+		{
+			char mapSymbol = generatedMap[row][col];
+
+			if (mapSymbol == '0')
+			{
+				continue;
+			}
+
+			Model temp = switchOnSymbol(mapSymbol);
+			temp.position = glm::vec3(row, 0, col);
+
+			models.push_back(temp);
+			modelPositions.push_back(temp.position);
+		}
+	}
 
 	//Player init
 	playerCam = Camera(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, -1.0f));
 	player = Player(100, 100);
+
+	//Model shader init
+	modelShader.use();
+	modelShader.setFloat("ambientCoeff", 0.05f);
+	modelShader.setFloat("shininess", 128 * 0.6f);
+	modelShader.setVec3("lightColor", lightColor);
+
+	for (int i = 0; i < modelPositions.size(); i++)
+	{
+		cout << modelPositions[i].x;
+		cout << modelPositions[i].z;
+		cout << endl;
+	}
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -342,38 +440,69 @@ int main()
 		// Update view matrix
 		view = playerCam.GetViewMatrix();
 
-		mainShader.use();
-		mainShader.setVec3("viewPosition", playerCam.position);
-		mainShader.setMat4("view", view);
-		mainShader.setMat4("projection", projection);
-		mainShader.setMat4("model", model);
+		modelShader.use();
+		modelShader.setVec3("viewPosition", playerCam.position);
+		modelShader.setVec3("lightPosition", glm::vec3(glm::sin(glfwGetTime()), 0.0f, glm::cos(glfwGetTime())));
+		modelShader.setInt("useBlinnPhong", useBlinnPhong);
+		modelShader.setMat4("view", view);
+		modelShader.setMat4("projection", projection);
 
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		if (tabPressed)
+		{
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
 
-		//UI
-		uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), mapGen.GetRows(), mapGen.GetColumns());
-		uiHandler.DrawPlayerInfo(player.GetStats());
+			//UI
+			uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), mapGen.GetRows(), mapGen.GetColumns());
+			uiHandler.DrawPlayerInfo(player.GetStats());
 
-		ImGui::Render();
-		glClear(GL_COLOR_BUFFER_BIT);
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+			//FPS calc
+			fpsData.push_back(1.0f / deltaTime);
+			uiHandler.DrawFPS(fpsData);
 
-		//Skybox updating
-		glDepthFunc(GL_LEQUAL);
+			if (fpsData.size() >= 2500)
+			{
+				fpsData.clear();
+			}
 
-		skyboxShader.use();
+			ImGui::Render();
+			glClear(GL_COLOR_BUFFER_BIT);
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-		skyboxShader.setInt("skybox", 0);
-		skyboxShader.setMat4("view", glm::mat4(glm::mat3(view)));
-		skyboxShader.setMat4("projection", projection);
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+		else
+		{
+			for (int i = 0; i < models.size(); i++)
+			{
+				glm::mat4 model = glm::mat4(1.0f);
 
-		glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
-		glBindVertexArray(skyboxVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+				model = glm::scale(model, models[i].scale);
+				model = glm::translate(model, modelPositions[i]);
+				modelShader.setMat4("model", model);
 
-		glDepthFunc(GL_LESS);
+				//Draw the model
+				models[i].Draw(modelShader);
+			}
+
+			//Skybox updating
+			glDepthFunc(GL_LEQUAL);
+
+			skyboxShader.use();
+
+			skyboxShader.setInt("skybox", 0);
+			skyboxShader.setMat4("view", glm::mat4(glm::mat3(view)));
+			skyboxShader.setMat4("projection", projection);
+
+			glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+			glBindVertexArray(skyboxVAO);
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+
+			glDepthFunc(GL_LESS);
+
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		}
 
 		// glfw: double buffering and polling IO events (keyboard, mouse, etc.)
 		glfwSwapBuffers(window);

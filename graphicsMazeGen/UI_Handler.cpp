@@ -1,4 +1,6 @@
 #include "UI_Handler.h"
+#include <string>
+#include <vector>
 
 UI_Handler::UI_Handler(){}
 
@@ -32,6 +34,16 @@ void UI_Handler::DrawPlayerInfo(EntityStats playerStats)
 	ImGui::ProgressBar(static_cast<float>(health) / 100.0f);
 	ImGui::Text("Mana");
 	ImGui::ProgressBar(static_cast<float>(mana) / 100.0f);
+
+	ImGui::End();
+}
+
+void UI_Handler::DrawFPS(std::vector<float> fpsData)
+{
+	ImGui::Begin("FPS");
+	ImVec2 graphSize(ImGui::GetContentRegionAvail().x, 200);
+
+	ImGui::PlotLines("##graph", fpsData.data(), static_cast<int>(fpsData.size()), 0, nullptr, FLT_MAX, FLT_MAX, graphSize);
 
 	ImGui::End();
 }

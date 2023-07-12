@@ -1,5 +1,7 @@
 #pragma once 
 
+#include <vector>
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -14,4 +16,6 @@ public:
 	void Draw2DCharArrayAsMap(char** array, int rows, int columns);
 
 	void DrawPlayerInfo(EntityStats playerStats);
+
+	void DrawFPS(std::vector<float> fpsData);
 };

@@ -8,8 +8,8 @@ class MapGenerator
 {
 private:
 	std::string mapPath;
-	const unsigned int rows = 8;
-	const unsigned int columns = 8;
+	const unsigned int rows = 3;
+	const unsigned int columns = 3;
 
 public:
 	const unsigned int GetRows();
@@ -21,4 +21,6 @@ public:
 	void PrintGrid(char** grid);
 
 	void ReadGridFromFile(char**& grid);
+
+	char GetChar(unsigned int row, unsigned int col);
 };

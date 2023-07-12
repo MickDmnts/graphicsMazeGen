@@ -104,6 +104,12 @@ public:
 		glUniform1i(location, value);
 	}
 
+	void setFloat(const string& name, float value) const
+	{
+		int location = glGetUniformLocation(ID, name.c_str());
+		glUniform1f(location, value);
+	}
+
 	void setVec3(const string& name, float x, float y, float z) const
 	{
 		int location = glGetUniformLocation(ID, name.c_str());
