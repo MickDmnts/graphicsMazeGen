@@ -21,6 +21,4 @@ public:
 	void PrintGrid(char** grid);
 
 	void ReadGridFromFile(char**& grid);
-
-	char GetChar(unsigned int row, unsigned int col);
 };

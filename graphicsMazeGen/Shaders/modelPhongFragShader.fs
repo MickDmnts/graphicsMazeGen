@@ -9,6 +9,7 @@ out vec4 FragColor;
 uniform float ambientCoeff;
 uniform sampler2D texture_diffuse1;
 uniform sampler2D texture_specular1;
+uniform float specularModifier;
 uniform float shininess;
 
 uniform vec3 lightColor;
@@ -44,6 +45,6 @@ void main()
         specular = texture(texture_specular1, texCoordinates).rgb * pow(max(dot(viewDirection, reflectionDirection), 0.0), shininess);
     }
 
-    vec3 result = (ambient + diffuse + specular) * lightColor;
+    vec3 result = (ambient + diffuse + (specular * specularModifier)) * lightColor;
     FragColor = vec4(result, 1.0);
 }

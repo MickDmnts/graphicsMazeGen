@@ -1,5 +1,8 @@
 #include "Camera.h"
 
+/// <summary>
+/// Creates a camera instance with default camera values
+/// </summary>
 Camera::Camera()
 {
 	position = glm::vec3(0.0f);
@@ -16,6 +19,9 @@ Camera::Camera()
 	UpdateCameraVectors();
 };
 
+/// <summary>
+/// Creates a camera instance with the passed position and forward, the rest of the camera information is automatically set.
+/// </summary>
 Camera::Camera(glm::vec3 startingPosition, glm::vec3 startingForward)
 {
 	position = startingPosition;
@@ -37,6 +43,9 @@ glm::mat4 Camera::GetViewMatrix()
 	return glm::lookAt(position, position + forward, up);
 }
 
+/// <summary>
+/// Handles the position of the camera based on the passed direction by deltaTime
+/// </summary>
 void Camera::HandleKeyboard(CameraMovement direction, float deltaTime)
 {
 	float finalSpeed = movementSpeed * deltaTime;
@@ -57,6 +66,9 @@ void Camera::HandleKeyboard(CameraMovement direction, float deltaTime)
 		position -= up * finalSpeed;
 }
 
+/// <summary>
+/// Rotates the camera by xOffset and yOffset of the camera based on mouse movement in the screen.
+/// </summary>
 void Camera::HandleMouseMovement(float xOffset, float yOffset, float deltaTime)
 {
 	float finalSpeed = rotationSpeed * deltaTime;
@@ -71,6 +83,9 @@ void Camera::HandleMouseMovement(float xOffset, float yOffset, float deltaTime)
 	UpdateCameraVectors();
 }
 
+/// <summary>
+/// Handles the FOV of the camera based on the passed offset.
+/// </summary>
 void Camera::HandleMouseScroll(float offset)
 {
 	fov -= offset;

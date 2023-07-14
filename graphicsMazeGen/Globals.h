@@ -1,17 +1,20 @@
 #include <vector>
 #include <string>
 
-//Window
+//Window width
 unsigned int SCR_WIDTH = 1280;
+//Window height
 unsigned int SCR_HEIGHT = 720;
 
+//Window reference
 GLFWwindow* window;
 
-// time settings
+//Delta time for framing
 float deltaTime = 0.0f;
 
-//Map info
+//Generated map information
 char** generatedMap = nullptr;
+//The map path
 std::string mapPath = "ActiveMap/map01.mmp";
 
 // Cubemap for skybox
@@ -25,6 +28,7 @@ std::vector<std::string> cubeFaces
 	"Textures/skybox/back.jpg",
 };
 
+//Skybox vertices
 float skyboxVertices[] =
 {
 	// positions          
@@ -71,6 +75,7 @@ float skyboxVertices[] =
 	 1.0f, -1.0f,  1.0f
 };
 
+//All the model paths of the app
 std::vector<std::string> modelPaths
 {
 	"Models/backpack/backpack.obj",
@@ -80,6 +85,7 @@ std::vector<std::string> modelPaths
 	"Models/plant/indoor plant_02.obj",
 };
 
+//All the model scales for each model
 std::vector<glm::vec3> modelScales
 {
 	glm::vec3(0.5f),

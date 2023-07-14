@@ -1,16 +1,30 @@
 #include "MapGenerator.h"
 
+/// <summary>
+/// Creates a MapGenerator instance and sets the mapPath to the passed argument.
+/// </summary>
+/// <param name="loadMapPath"></param>
 MapGenerator::MapGenerator(std::string loadMapPath)
 {
 	mapPath = loadMapPath;
 }
 
+/// <summary>
+/// Returns the rows of the map
+/// </summary>
 const unsigned int MapGenerator::GetRows()
 { return rows; }
-
+\
+/// <summary>
+/// Returns the columns of the map
+/// </summary>
 const unsigned int MapGenerator::GetColumns()
 { return columns; }
 
+/// <summary>
+/// Prints the passed 2d array to the console
+/// </summary>
+/// <param name="grid">The 2d char array to print</param>
 void MapGenerator::PrintGrid(char** grid)
 {
 	for (int row = 0; row < rows; ++row)
@@ -23,6 +37,9 @@ void MapGenerator::PrintGrid(char** grid)
 	}
 }
 
+/// <summary>
+/// Populates the passed 2d char array with the loaded symbols from the map file.
+/// </summary>
 void MapGenerator::ReadGridFromFile(char**& grid)
 {
 	std::ifstream file(mapPath);

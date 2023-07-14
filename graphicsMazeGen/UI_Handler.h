@@ -7,6 +7,7 @@
 #include <imgui_impl_opengl3.h>
 
 #include "EntityStats.h"
+#include "Shader.h"
 
 class UI_Handler
 {

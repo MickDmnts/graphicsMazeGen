@@ -48,9 +48,11 @@ Player player;
 //Models and lights
 glm::vec3 lightPosition = glm::vec3(0.0f, 1.0f, 0.0f);
 glm::vec3 lightColor = glm::vec3(1.0f);
+float posMultiplier = 10.0f;
 
 std::vector<Model> models;
 std::vector<glm::vec3> modelPositions;
+map<std::string, float> modelShaderUniforms;
 
 //FPS
 std::vector<float> fpsData;
@@ -129,6 +131,14 @@ void IMGUI_Init()
 #pragma endregion
 
 #pragma region PROCESS_INPUT
+//Sets the tabPressed boolean state to the passed argument
+void setUiState(bool state)
+{
+	tabPressed = state;
+	keyCD = 0.0f;
+}
+
+//Proccesses all Keyboard input in the active window
 void processInput(GLFWwindow* window)
 {
 	if (keyCD + deltaTime <= FLT_MAX)
@@ -189,7 +199,7 @@ void processInput(GLFWwindow* window)
 	{
 		if (keyCD >= toggleCD)
 		{
-			tabPressed = !tabPressed;
+			setUiState(!tabPressed);
 			keyCD = 0.0f;
 		}
 	}
@@ -289,6 +299,11 @@ unsigned int loadCubeMap(std::vector<std::string> faces)
 	return textureID;
 }
 
+/// <summary>
+/// Returns the equivalent model based on the passed char symbol
+/// </summary>
+/// <param name="symbol">The loaded map symbol</param>
+/// <returns>A loaded model corresponding to the symbol.</returns>
 Model switchOnSymbol(char symbol)
 {
 	if (symbol == '0')
@@ -392,7 +407,7 @@ int main()
 			}
 
 			Model temp = switchOnSymbol(mapSymbol);
-			temp.position = glm::vec3(row, 0, col);
+			temp.position = glm::vec3(row * posMultiplier, 0, col * posMultiplier);
 
 			models.push_back(temp);
 			modelPositions.push_back(temp.position);
@@ -407,14 +422,13 @@ int main()
 	modelShader.use();
 	modelShader.setFloat("ambientCoeff", 0.05f);
 	modelShader.setFloat("shininess", 128 * 0.6f);
+	modelShader.setFloat("specularModifier", 0.000001f);
 	modelShader.setVec3("lightColor", lightColor);
 
-	for (int i = 0; i < modelPositions.size(); i++)
-	{
-		cout << modelPositions[i].x;
-		cout << modelPositions[i].z;
-		cout << endl;
-	}
+	//Dictionary (Map) setup
+	modelShaderUniforms.insert({ "ambientCoeff", 0.05f });
+	modelShaderUniforms.insert({ "shininess", 128 * 0.6f });
+	modelShaderUniforms.insert({ "specularModifier", 0.000001f });
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -457,10 +471,55 @@ int main()
 			uiHandler.Draw2DCharArrayAsMap(reinterpret_cast<char**>(generatedMap), mapGen.GetRows(), mapGen.GetColumns());
 			uiHandler.DrawPlayerInfo(player.GetStats());
 
+			//Presets window
+			ImGui::Begin("Shader Presets");
+			if (ImGui::Button("Rough Preset"))
+			{
+				modelShader.setFloat("ambientCoeff", 0.05f);
+				modelShader.setFloat("shininess", 128 * 0.1f);
+				setUiState(false);
+			}
+
+			if (ImGui::Button("Matte Preset"))
+			{
+				modelShader.setFloat("specularModifier", 0.000001f);
+				setUiState(false);
+			}
+
+			if (ImGui::Button("Glossy Preset"))
+			{
+				modelShader.setFloat("ambientCoeff", 0.05f);
+				modelShader.setFloat("shininess", 128 * 0.6f);
+				modelShader.setFloat("specularModifier", 1.0f);
+
+				setUiState(false);
+			}
+			ImGui::End();
+
+			//Shader editing
+			ImGui::Begin("Shader Editor");
+
+			if (ImGui::InputFloat("Ambient Coefficient", &modelShaderUniforms["ambientCoeff"], 0.01f, 0.1f, "%.2f"))
+			{
+				modelShader.setFloat("ambientCoeff", modelShaderUniforms["ambientCoeff"]);
+			}
+
+			if (ImGui::InputFloat("Shininess", &modelShaderUniforms["shininess"], 0.01f, 0.1f, "%.2f"))
+			{
+				modelShader.setFloat("shininess", 128 * modelShaderUniforms["shininess"]);
+			}
+
+			if (ImGui::InputFloat("Specular Modifier", &modelShaderUniforms["specularModifier"], 0.01f, 0.1f, "%.2f"))
+			{
+				modelShader.setFloat("specularModifier", modelShaderUniforms["specularModifier"]);
+			}
+
+			ImGui::End();
+
 			//FPS calc
 			fpsData.push_back(1.0f / deltaTime);
 			uiHandler.DrawFPS(fpsData);
-
+			//Clears the fps data list after 2500 writings.
 			if (fpsData.size() >= 2500)
 			{
 				fpsData.clear();
@@ -500,6 +559,8 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 
 			glDepthFunc(GL_LESS);
+
+			cout << "FPS: " << (1.0f / deltaTime) << endl;
 
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		}
